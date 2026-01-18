@@ -1,4 +1,4 @@
-# 🚀 Blockchain Fraud Detection - COMP-548DL Final Project
+#  Blockchain Fraud Detection - COMP-548DL Final Project
 
 ## Project Overview
 A production-grade machine learning system for detecting anomalous Ethereum transactions using **BigQuery** and **PySpark**. Successfully analyzed **1 million real Ethereum transactions** and identified **49,985 anomalies** with a systematic **fraud ring at address 0x2910543a**.
@@ -29,7 +29,7 @@ A production-grade machine learning system for detecting anomalous Ethereum tran
 
 ## How BigQuery & PySpark Are Used Meaningfully
 
-### BigQuery: Scalable Data Warehouse ✅
+### BigQuery: Scalable Data Warehouse 
 **What it does:** Query massive Ethereum dataset without downloading entire database
 
 **In this project:**
@@ -54,7 +54,7 @@ LIMIT 1000000
 df = client.query(query).to_dataframe()
 ```
 
-### PySpark: Distributed Machine Learning ✅
+### PySpark: Distributed Machine Learning 
 **What it does:** Process massive datasets across multiple nodes in parallel
 
 **In this project:**
