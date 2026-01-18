@@ -173,7 +173,7 @@ rank,anomaly_score,transaction_count,address_pattern,risk_level
 ## 🔗 Links
 
 - **GitHub Repository**: [https://github.com/Mariosd23/blockchain-fraud-detection](https://github.com/Mariosd23/blockchain-fraud-detection)
-- **YouTube Presentation**: [Link to video]
+- **YouTube Presentation**: [[Link to video]](https://www.youtube.com/watch?v=qbop4Ri6-sI)
 - **BigQuery Dataset**: [ethereum.transactions](https://cloud.google.com/bigquery/public-data)
 - **PySpark Documentation**: https://spark.apache.org/docs/latest/
 
