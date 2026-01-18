@@ -5,3 +5,5 @@ venv/
 .env
 output/ethereum_1m_fraud_analysis.csv
 output/ethereum_fraud_analysis.csv
+output/ethereum_pyspark_all_results.csv
+output/ethereum_pyspark_anomalies.csv
