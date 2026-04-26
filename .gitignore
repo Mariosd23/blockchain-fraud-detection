@@ -3,6 +3,9 @@ __pycache__/
 .DS_Store
 venv/
 .env
+*.egg-info/
+dist/
+build/
 output/ethereum_1m_fraud_analysis.csv
 output/ethereum_fraud_analysis.csv
 output/ethereum_pyspark_all_results.csv

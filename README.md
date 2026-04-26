@@ -48,7 +48,7 @@ blockchain-fraud-detection/
 
 ### Prerequisites
 ```bash
-pip install google-cloud-bigquery pyspark scikit-learn pandas numpy matplotlib joblib kafka-python
+pip install -r requirements.txt
 ```
 
 ### Running the Analysis

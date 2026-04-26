@@ -6,14 +6,16 @@ Analyzes 1M real Ethereum transactions using distributed PySpark processing
 from google.cloud import bigquery
 from pyspark.sql import SparkSession
 from pyspark.ml.feature import VectorAssembler
-from pyspark.ml.clustering import IsolationForest
+from sklearn.ensemble import IsolationForest
 import pandas as pd
+import numpy as np
 import time
 
 def run_pyspark_bigquery_analysis():
     """
-    Load 1M transactions from BigQuery and process with PySpark
-    Demonstrates meaningful use of both BigQuery (data warehouse) and PySpark (distributed processing)
+    Load 1M transactions from BigQuery and process with PySpark.
+    Demonstrates meaningful use of both BigQuery (data warehouse) and PySpark (distributed processing).
+    Uses scikit-learn IsolationForest for anomaly detection.
     """
     
     print("🚀 PySpark + BigQuery Fraud Detection")
@@ -79,19 +81,23 @@ def run_pyspark_bigquery_analysis():
     df_features = assembler.transform(df_clean)
     print("✅ Features assembled: [value_eth, gas_price_gwei, hour_of_day]")
     
-    # Step 5: Anomaly Detection with Isolation Forest (Distributed)
-    print("\n🤖 STEP 5: Running Isolation Forest (PySpark Distributed)...")
+    # Step 5: Anomaly Detection with Isolation Forest
+    print("\n🤖 STEP 5: Running Isolation Forest...")
     
     start_ml = time.time()
     
-    iso_forest = IsolationForest(
-        contaminationRate=0.05,
-        randomSeed=42,
-        numTrees=100
-    )
+    # Collect features to driver for sklearn IsolationForest
+    pdf = df_clean.select('from_address', 'to_address', 'value_eth', 'gas_price_gwei', 'hour_of_day').toPandas()
+    X = pdf[['value_eth', 'gas_price_gwei', 'hour_of_day']].values
     
-    model = iso_forest.fit(df_features)
-    predictions = model.transform(df_features)
+    iso_forest = IsolationForest(
+        contamination=0.05,
+        random_state=42,
+        n_estimators=100,
+        n_jobs=-1
+    )
+    pdf['anomaly'] = iso_forest.fit_predict(X)
+    pdf['anomaly'] = pdf['anomaly'].map({1: 0, -1: 1})  # 1 = anomaly
     
     ml_time = time.time() - start_ml
     
@@ -100,8 +106,8 @@ def run_pyspark_bigquery_analysis():
     # Step 6: Analyze Results
     print("\n📊 STEP 6: Analyzing Results...")
     
-    anomalies_count = predictions.filter(predictions.anomaly == 1).count()
-    total_count = predictions.count()
+    anomalies_count = int(pdf['anomaly'].sum())
+    total_count = len(pdf)
     anomaly_rate = (anomalies_count / total_count) * 100
     
     print(f"✅ Detected {anomalies_count:,} anomalies out of {total_count:,}")
@@ -110,24 +116,12 @@ def run_pyspark_bigquery_analysis():
     # Step 7: Export Results
     print("\n💾 STEP 7: Exporting Results...")
     
-    # Convert back to pandas for CSV export
-    results_pd = predictions.select(
-        'from_address', 
-        'to_address', 
-        'value_eth', 
-        'gas_price_gwei', 
-        'anomaly'
-    ).toPandas()
-    
     # Save all results
-    results_pd.to_csv('output/ethereum_pyspark_all_results.csv', index=False)
+    pdf.to_csv('output/ethereum_pyspark_all_results.csv', index=False)
     print("✅ Saved all results: output/ethereum_pyspark_all_results.csv")
     
     # Save anomalies only (sorted by value)
-    anomalies_pd = results_pd[results_pd['anomaly'] == 1].sort_values(
-        'value_eth', 
-        ascending=False
-    )
+    anomalies_pd = pdf[pdf['anomaly'] == 1].sort_values('value_eth', ascending=False)
     anomalies_pd.to_csv('output/ethereum_pyspark_anomalies.csv', index=False)
     print(f"✅ Saved anomalies: output/ethereum_pyspark_anomalies.csv ({len(anomalies_pd):,} rows)")
     
@@ -139,7 +133,8 @@ def run_pyspark_bigquery_analysis():
     for i, (addr, count) in enumerate(top_receivers.items(), 1):
         total_eth = anomalies_pd[anomalies_pd['to_address'] == addr]['value_eth'].sum()
         avg_eth = total_eth / count
-        print(f"   {i:2d}. {addr[:10]}... | Txs: {count:4d} | Total: {total_eth:>12,.0f} ETH | Avg: {avg_eth:>10,.0f} ETH")
+        if addr:
+            print(f"   {i:2d}. {str(addr)[:10]}... | Txs: {count:4d} | Total: {total_eth:>12,.0f} ETH | Avg: {avg_eth:>10,.0f} ETH")
     
     # Performance Summary
     print("\n" + "=" * 70)
@@ -165,17 +160,7 @@ def run_pyspark_bigquery_analysis():
     print("   • Retrieved 1M transactions in seconds (not hours)")
     print("   • Processed with PySpark distributed framework")
     print("   • Detected fraud patterns on real blockchain data")
-    print("   • Identified active fraud ring at 0x2910543a")
-    print("   • Production-ready system: 14,284+ txs/second")
-    
-    print("\n🔍 Fraud Ring Analysis:")
-    fraud_ring = anomalies_pd[anomalies_pd['to_address'] == '0x2910543a']
-    if len(fraud_ring) > 0:
-        print(f"   Address: 0x2910543a")
-        print(f"   Total transactions: {len(fraud_ring):,}")
-        print(f"   Total ETH received: {fraud_ring['value_eth'].sum():,.0f}")
-        print(f"   Avg per transaction: {fraud_ring['value_eth'].mean():,.0f} ETH")
-        print(f"   Max transaction: {fraud_ring['value_eth'].max():,.0f} ETH")
+    print(f"   • Production-ready system: {throughput:,.0f}+ txs/second")
     
     print("\n💡 Why BigQuery + PySpark:")
     print("   BigQuery:  Access to massive datasets (500GB+), query in seconds")
