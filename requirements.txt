@@ -1,0 +1,8 @@
+google-cloud-bigquery
+pyspark
+scikit-learn
+pandas
+numpy
+matplotlib
+joblib
+kafka-python

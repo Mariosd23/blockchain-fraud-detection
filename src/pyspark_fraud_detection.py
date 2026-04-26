@@ -4,14 +4,17 @@ Demonstrates how to scale anomaly detection across multiple nodes
 """
 
 from pyspark.sql import SparkSession
-from pyspark.ml.feature import VectorAssembler
-from pyspark.ml.clustering import IsolationForest
+from pyspark.ml.feature import VectorAssembler, StandardScaler
+from pyspark.sql.functions import col, when, lit
+from sklearn.ensemble import IsolationForest
 import pandas as pd
+import numpy as np
 
 def run_pyspark_analysis():
     """
-    Demonstrates PySpark distributed processing for fraud detection
-    This shows how the analysis scales from single machine to distributed cluster
+    Demonstrates PySpark distributed processing for fraud detection.
+    Uses PySpark for data processing and feature engineering,
+    then scikit-learn IsolationForest for anomaly detection.
     """
     
     # Initialize Spark
@@ -43,7 +46,7 @@ def run_pyspark_analysis():
     
     print(f"✅ Created {df.count():,} sample transactions")
     
-    # Feature engineering
+    # Feature engineering with PySpark
     print("\n🔧 Feature Engineering...")
     assembler = VectorAssembler(
         inputCols=["value_eth", "gas", "gas_price_gwei"],
@@ -51,29 +54,31 @@ def run_pyspark_analysis():
     )
     df_features = assembler.transform(df)
     
-    # Anomaly detection
-    print("\n🤖 Running Isolation Forest (distributed)...")
-    iso_forest = IsolationForest(
-        contaminationRate=0.05,
-        randomSeed=42,
-        numTrees=100
-    )
+    # Anomaly detection using scikit-learn (collect features to driver)
+    print("\n🤖 Running Isolation Forest...")
+    pdf = df.select("tx_id", "value_eth", "gas", "gas_price_gwei").toPandas()
+    X = pdf[["value_eth", "gas", "gas_price_gwei"]].values
     
-    model = iso_forest.fit(df_features)
-    predictions = model.transform(df_features)
+    iso_forest = IsolationForest(
+        contamination=0.05,
+        random_state=42,
+        n_estimators=100,
+        n_jobs=-1
+    )
+    pdf["anomaly"] = iso_forest.fit_predict(X)
+    pdf["anomaly"] = pdf["anomaly"].map({1: 0, -1: 1})  # 1 = anomaly
     
     # Count anomalies
-    anomalies = predictions.filter(predictions.anomaly == 1).count()
-    total = predictions.count()
+    anomalies = pdf["anomaly"].sum()
+    total = len(pdf)
     
     print(f"✅ Detected {anomalies:,} anomalies out of {total:,} transactions")
     print(f"   Anomaly rate: {anomalies/total*100:.2f}%")
     
     # Show results
-    print("\n📋 Sample Results:")
-    predictions.select("tx_id", "value_eth", "gas_price_gwei", "anomaly") \
-        .filter(predictions.anomaly == 1) \
-        .show(10)
+    print("\n📋 Sample Anomalous Transactions:")
+    anomalous = pdf[pdf["anomaly"] == 1].head(10)
+    print(anomalous[["tx_id", "value_eth", "gas_price_gwei", "anomaly"]].to_string(index=False))
     
     print("\n" + "=" * 60)
     print("✅ PySpark Analysis Complete")
@@ -84,6 +89,8 @@ def run_pyspark_analysis():
     print("  • Fault-tolerant (can restart failed tasks)")
     print("  • Integrates with BigQuery, HDFS, Cloud Storage")
     print("  • Scales from laptop to enterprise clusters")
+    
+    spark.stop()
 
 if __name__ == "__main__":
     run_pyspark_analysis()
